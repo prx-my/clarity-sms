@@ -29,7 +29,15 @@ Open the URL printed by Next.js. The demo uses in-memory sample data and simulat
 2. Copy `.env.example` to `.env.local` and set the variables below. Leave `DEMO_MODE` empty or remove it.
 3. Apply the database schema with `npm run db:push`.
 4. Start the app with `npm run dev` and sign in with `ADMIN_PASSWORD`.
-5. Set the Twilio number's incoming-message webhook to `https://your-origin/api/twilio/inbound` using `POST`. Set its status callback to `https://your-origin/api/twilio/status` using `POST`.
+5. Set the Twilio number's incoming-message webhook to `https://your-origin/api/twilio/inbound` using `POST`. The app supplies its status callback URL when sending SMS.
+
+## Browser dialer
+
+The Calls page places outbound voice calls using the browser microphone and your voice-capable Twilio number. It does not change where incoming phone calls are routed.
+
+1. Create a TwiML App in Twilio with Voice Request URL `https://your-origin/api/voice/outbound` and method `POST`.
+2. Create a Standard Twilio API key. Set `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET`, and `TWILIO_TWIML_APP_SID` in `.env.local` or your host's secret settings.
+3. Open Calls, dial a phone number with its country code, and allow microphone access. Recent outgoing calls are read from Twilio.
 
 For local webhooks, expose the dev server through an HTTPS tunnel and set `APP_URL` to that tunnel's origin. For deployment, set the same environment variables on the host and set `APP_URL` to the deployed HTTPS origin. Twilio request validation depends on that URL matching the public origin.
 
@@ -38,6 +46,9 @@ For local webhooks, expose the dev server through an HTTPS tunnel and set `APP_U
 | `TWILIO_ACCOUNT_SID` | Twilio account SID |
 | `TWILIO_AUTH_TOKEN` | Twilio auth token used for sending and webhook validation |
 | `TWILIO_PHONE_NUMBER` | SMS-capable number in E.164 format |
+| `TWILIO_API_KEY_SID` | Standard API key SID for browser voice tokens |
+| `TWILIO_API_KEY_SECRET` | Standard API key secret for browser voice tokens |
+| `TWILIO_TWIML_APP_SID` | TwiML App with Voice Request URL pointing to `/api/voice/outbound` |
 | `DATABASE_URL` | Neon Postgres connection string |
 | `APP_URL` | Public origin used for webhook validation and callbacks |
 | `ADMIN_PASSWORD` | Password for the single admin account |

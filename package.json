@@ -21,6 +21,7 @@
     "@radix-ui/react-slot": "^1.2.0",
     "@radix-ui/react-tooltip": "^1.2.0",
     "@tailwindcss/postcss": "^4.1.0",
+    "@twilio/voice-sdk": "^2.18.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
