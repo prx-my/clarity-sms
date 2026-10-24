@@ -13,7 +13,7 @@ const keys = [
   ['1', ''], ['2', 'ABC'], ['3', 'DEF'],
   ['4', 'GHI'], ['5', 'JKL'], ['6', 'MNO'],
   ['7', 'PQRS'], ['8', 'TUV'], ['9', 'WXYZ'],
-  ['*', ''], ['0', '+'], ['#', ''],
+  ['*', ''], ['0', ''], ['#', ''],
 ];
 const active = (phase: Phase) => ['preparing', 'dialing', 'ringing', 'connected'].includes(phase);
 
@@ -187,6 +187,9 @@ export function VoiceDialer({ demo = false }: { demo?: boolean }) {
     <div className="dialer-body">
       <label htmlFor="dialer-number">Phone number</label>
       <div className="dialer-number">
+        <button type="button" className="dialer-plus" aria-label="Add country code"
+          title="Add country code" disabled={active(phase)}
+          onClick={() => setNumber(value => value.startsWith('+') ? value : `+${value}`)}>+</button>
         <Input id="dialer-number" type="tel" autoComplete="tel" value={number}
           onChange={event => setNumber(event.target.value)}
           onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); call(); } }}

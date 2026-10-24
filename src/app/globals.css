@@ -159,6 +159,9 @@ body { letter-spacing: -.006em; }
 .dialer-body { padding: 18px 22px 22px; }
 .dialer-body label { display: block; margin-bottom: 7px; font-size: 11px; font-weight: 700; color: #777168; text-transform: uppercase; letter-spacing: .07em; }
 .dialer-number { display: flex; align-items: center; gap: 5px; }
+.dialer-plus { display: grid; place-items: center; flex: none; width: 43px; height: 43px; border: 1px solid #ded9d0; border-radius: 10px; background: #fbfaf8; color: #302e28; font-size: 23px; line-height: 1; cursor: pointer; }
+.dialer-plus:hover:not(:disabled) { background: #f1eee8; border-color: #c9c0b5; }
+.dialer-plus:disabled { opacity: .5; cursor: not-allowed; }
 .dialer-number .input { height: 43px; font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: .015em; }
 .dialer-number .icon-button { flex: none; }
 .dialer-help { margin: 7px 0 0; color: #9a9389; font-size: 11px; line-height: 1.45; }
