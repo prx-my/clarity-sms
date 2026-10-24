@@ -1,0 +1,12 @@
+node_modules/
+.next/
+.vercel/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+*.log
+.DS_Store
+
+# Never commit local credentials.
+.env*
+!.env.example

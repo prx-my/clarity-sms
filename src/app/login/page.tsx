@@ -1,0 +1,7 @@
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { MessageSquareText, ArrowRight } from 'lucide-react';
+import { Button, Input } from '@/components/ui/primitives';
+import { api } from '@/lib/client-api';
+export default function LoginPage(){const [password,setPassword]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(false);const router=useRouter();async function submit(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');try{await api('/api/auth/login',{method:'POST',body:JSON.stringify({password})});router.replace('/');router.refresh();}catch(err){setError(err instanceof Error?err.message:'Could not sign in')}finally{setLoading(false)}}return <div className="login-screen"><form className="login-card" onSubmit={submit}><div className="brand-mark"><MessageSquareText size={18}/></div><h1>Welcome back</h1><p>Sign in to your Clarity SMS inbox.</p><div className="field"><label htmlFor="password">Password</label><Input id="password" type="password" autoComplete="current-password" placeholder="Enter your password" value={password} onChange={e=>setPassword(e.target.value)} required/>{error&&<div className="form-error" role="alert">{error}</div>}</div><Button type="submit" variant="primary" disabled={loading||!password}>{loading?'Signing in…':<>Sign in <ArrowRight size={15}/></>}</Button></form></div>}

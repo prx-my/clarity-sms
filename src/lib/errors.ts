@@ -1,0 +1,2 @@
+export const errorReasons: Record<string,string> = { '21610':'Recipient unsubscribed by replying STOP','21606':'This number cannot receive SMS','21408':'Trial account: recipient number is not verified','30003':'Handset unreachable','30007':'Carrier filtered this message, possibly due to registration requirements' };
+export function errorReason(code?:string|null){return code?errorReasons[code]||`Carrier rejected the message (code ${code})`:'Message could not be delivered'}
