@@ -20,6 +20,12 @@ export function validateWebhook(request: Request, params: Record<string,string>)
   const token = process.env.TWILIO_AUTH_TOKEN;
   const signature = request.headers.get('x-twilio-signature');
   if (!token || !signature) return false;
+  if (process.env.TWILIO_ACCOUNT_SID && params.AccountSid !== process.env.TWILIO_ACCOUNT_SID) return false;
+  if (process.env.APP_URL) {
+    const path = new URL(request.url);
+    return twilio.validateRequest(token, signature, `${publicAppUrl()}${path.pathname}${path.search}`, params);
+  }
+  if (process.env.NODE_ENV === 'production') return false;
   const proto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || new URL(request.url).protocol.replace(':','');
   const host = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || request.headers.get('host');
   if (!host) return false;

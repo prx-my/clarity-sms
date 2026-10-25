@@ -75,6 +75,7 @@ export const aiTools = pgTable('ai_tool_executions', {
   durationMs: integer('duration_ms').notNull().default(0), createdAt: aiTimestamp('created_at').notNull().defaultNow(),
 }, t => [uniqueIndex('ai_tools_idempotency').on(t.sessionId, t.key)]);
 export const aiUsage = pgTable('ai_call_usage', {
+  updatedAt: aiTimestamp('updated_at').notNull().defaultNow(),
   id: uuid('id').primaryKey().defaultRandom(), sessionId: uuid('session_id').notNull().references(() => aiSessions.id, { onDelete: 'cascade' }),
   key: text('key').notNull(), category: text('category').notNull(), model: text('model').notNull().default(''),
   quantity: text('quantity').notNull(), unit: text('unit').notNull(), estimated: boolean('estimated').notNull().default(true),
@@ -93,3 +94,7 @@ export const aiRateCards = pgTable('ai_rate_cards', {
   effectiveAt: aiTimestamp('effective_at').notNull(), source: text('source').notNull(), bundled: boolean('bundled').notNull().default(false),
   increment: integer('increment').notNull().default(1),
 }, t => [uniqueIndex('ai_rate_version').on(t.provider, t.category, t.model, t.effectiveAt)]);
+
+// Monitoring is an independent read model and accounting ledger. Operational IDs
+// are references, not cascading foreign keys: retention must preserve financials.
+export * from './monitoring-schema';

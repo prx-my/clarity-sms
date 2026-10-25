@@ -110,7 +110,7 @@ export class AgentRuntime {
         const result=await this.llm.complete({model:routing.model,config:s.agentSnapshot,messages:history,tools:llmTools(s.agentSnapshot.allowedTools),signal:AbortSignal.any([controller.signal,AbortSignal.timeout(18000)]),cacheKey:s.agentSnapshot.optimizations.promptCacheKey?`voice-${s.agentId}`:undefined,
           onText:async text=>{if(g!==this.generation)return;buffer+=text;const split=buffer.search(/[.!?](?:\s|$)/);if(split>=0&&buffer.length>split+2){const sentence=buffer.slice(0,split+2);buffer=buffer.slice(split+2);await emit(sentence,false);}}});
         const usage=result.usage;
-        const meta={provider:s.agentSnapshot.llmProvider||'openai',latencyMs:Date.now()-started,firstResponseMs:firstToken,escalated:routing.escalated,reason:routing.reason,finishReason:result.finishReason,usageIncomplete:!usage,requestId:result.requestId,reasoningTokens:usage?.reasoning||0};
+        const meta={provider:s.agentSnapshot.llmProvider||'openai',latencyMs:Date.now()-started,firstResponseMs:firstToken,escalated:routing.escalated,reason:routing.reason,finishReason:result.finishReason,usageIncomplete:!usage,requestId:result.requestId,firstTokenMs:result.firstTokenMs??null,retryCount:0,startedAt:new Date(started).toISOString(),endedAt:new Date().toISOString(),reasoningTokens:usage?.reasoning||0};
         for(const [category,count] of [['llm_input',Math.max(0,(usage?.input||0)-(usage?.cached||0))],['llm_cached_input',usage?.cached||0],['llm_output',usage?.output||0]] as const)
           await this.store.recordUsage(usageEvent(s.id,`${requestKey}:${category}`,category,String(count),'token',routing.model,meta));
         if(g!==this.generation||controller.signal.aborted)return;
@@ -130,10 +130,11 @@ export class AgentRuntime {
           if(call.name==='request_human_transfer'&&output.ok){this.closed=true;this.cancel();return;}
         }
         s=await this.session();
-      } catch {
-        await this.store.recordUsage(usageEvent(s.id,`${requestKey}:llm_input`,'llm_input','0','token',routing.model,{usageIncomplete:true,canceled:controller.signal.aborted,latencyMs:Date.now()-started}));
+      } catch (error) {
+        const httpStatus=Number((error as {status?:number}).status)||null;
+        await this.store.recordUsage(usageEvent(s.id,`${requestKey}:llm_input`,'llm_input','0','token',routing.model,{provider:s.agentSnapshot.llmProvider||'openai',usageIncomplete:true,canceled:controller.signal.aborted,latencyMs:Date.now()-started,httpStatus,startedAt:new Date(started).toISOString(),endedAt:new Date().toISOString(),retryCount:0}));
         if(g!==this.generation||controller.signal.aborted)return;
-        this.failures++;await this.store.event(s.id,'llm_failure',{code:'provider_unavailable'});
+        this.failures++;await this.store.event(s.id,'llm_failure',{code:httpStatus===429?'rate_limited':'provider_unavailable',httpStatus});
         await this.say("I'm having trouble getting a response. You can press zero to request a person, or we can try your question again.");return;
       }
     }
@@ -172,6 +173,7 @@ export class AgentRuntime {
   }
   async disconnect() {
     this.cancel();await this.queue.catch(()=>{});await this.pendingWrites;
+    await this.store.event(this.sessionId,'websocket_disconnected',{code:'relay_closed'});
     const s=await this.session();
     const relayStarted=Date.parse(String(s.memory.relayStartedAt||s.startedAt||s.createdAt));
     const relaySeconds=Math.max(s.relaySeconds,Math.floor((Date.now()-relayStarted)/1000));

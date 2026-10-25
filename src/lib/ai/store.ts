@@ -100,7 +100,7 @@ export class PostgresStore implements Store {
       const [previous]=await this.database().select().from(aiUsage).where(and(eq(aiUsage.sessionId,value.sessionId),eq(aiUsage.key,value.key)));
       if(previous&&(previous.finalizedUsd!==null||(String(previous.metadata.source||'').startsWith('Twilio')&&!String(value.metadata.source||'').startsWith('Twilio'))))return;
     }
-    await this.database().insert(aiUsage).values(value).onConflictDoUpdate({ target: [aiUsage.sessionId,aiUsage.key], set: { quantity: value.quantity, metadata: value.metadata, finalizedUsd: value.finalizedUsd, estimated: value.estimated } });
+    await this.database().insert(aiUsage).values(value).onConflictDoUpdate({ target: [aiUsage.sessionId,aiUsage.key], set: { quantity: value.quantity, metadata: value.metadata, finalizedUsd: value.finalizedUsd, estimated: value.estimated, updatedAt: now() } });
   }
   async qualifications(id: string) { return this.database().select().from(aiQualifications).where(eq(aiQualifications.sessionId, id)).orderBy(asc(aiQualifications.createdAt)); }
   async saveQualification(value: Qualification) { await this.database().insert(aiQualifications).values(value); }

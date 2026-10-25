@@ -19,7 +19,7 @@ test('generated migrations preserve SMS, enforce call reservations and persist t
     await pg.query('insert into contacts(id,phone,name) values ($1,$2,$3)',[contact,'+14155550143','Existing contact']);
     await pg.query('insert into conversations(id,contact_id,twilio_number) values ($1,$2,$3)',[thread,contact,'+14155550199']);
     await pg.query("insert into messages(conversation_id,direction,body,from_number,to_number) values($1,'outbound','Existing SMS',$2,$3)",[thread,'+14155550199','+14155550143']);
-    await pg.exec(await readFile('drizzle/0001_yellow_bromley.sql','utf8'));
+    await pg.exec(await readFile('drizzle/0001_yellow_bromley.sql','utf8'));await pg.exec(await readFile('drizzle/0002_yellow_bucky.sql','utf8'));
     const config=JSON.stringify(defaultAgent());await pg.query('insert into ai_agents(id,config) values ($1,$2)',[agent,config]);
     await pg.query("insert into ai_call_sessions(id,agent_id,contact_id,direction,phone,agent_snapshot) values($1,$2,$3,'outbound',$4,$5)",[session,agent,contact,'+14155550143',config]);
     await assert.rejects(()=>pg.query("insert into ai_call_sessions(agent_id,contact_id,direction,phone,agent_snapshot) values($1,$2,'outbound',$3,$4)",[agent,contact,'+14155550143',config]),/duplicate key/);
@@ -40,7 +40,7 @@ test('generated migrations preserve SMS, enforce call reservations and persist t
 
 test('PostgresStore SQL supports the real session lifecycle, concurrent status ordering, usage and retention',async()=>{
   const pg=new PGlite();try{
-    await pg.exec(await readFile('drizzle/0000_luxuriant_thunderbolts.sql','utf8'));await pg.exec(await readFile('drizzle/0001_yellow_bromley.sql','utf8'));
+    await pg.exec(await readFile('drizzle/0000_luxuriant_thunderbolts.sql','utf8'));await pg.exec(await readFile('drizzle/0001_yellow_bromley.sql','utf8'));await pg.exec(await readFile('drizzle/0002_yellow_bucky.sql','utf8'));
     const store=new PostgresStore(()=>drizzle(pg,{schema}) as unknown as ReturnType<typeof db>);
     const agent=(await store.agents())[0],lead=await store.leadByPhone('+14155550143'),session=newSession(agent,lead,'inbound',true);
     session.callSid='CA'+'a'.repeat(32);await store.createSession(session);await store.addMessage({id:crypto.randomUUID(),sessionId:session.id,role:'user',text:'Please help with a website',generatedText:null,interrupted:false,delivery:'received',createdAt:new Date().toISOString()});

@@ -4,6 +4,9 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { conversations, messages } from '@/db/schema';
 import { publicAppUrl, twilioNumber } from '@/lib/twilio';
+import { collect } from '../monitoring/store';
+import { messageRecord } from '../monitoring/providers';
+import { segments } from '../monitoring/model';
 import { normalizePhone } from '@/lib/phone';
 import { outcomes, toolNames } from './config';
 import { confirmationEvidence } from './policy';
@@ -37,6 +40,8 @@ export const realEffects:Effects={
   async end(s) { await voiceClient().calls(s.callSid!).update({status:'completed'}); },
   async sms(s,body) {
     const sent=await voiceClient().messages.create({to:s.phone,from:twilioNumber(),body,statusCallback:`${publicAppUrl()}/api/twilio/status`});
+    const prediction=segments(body), telemetry=messageRecord(sent,{sessionId:s.id,agentId:s.agentId,contactId:s.contactId,interactionId:s.callSid||s.id});
+    await collect({...telemetry,data:{...telemetry.data,estimatedSegments:prediction.segments,encoding:prediction.encoding}});
     const [thread]=await db().insert(conversations).values({contactId:s.contactId,twilioNumber:twilioNumber()}).onConflictDoUpdate({target:[conversations.contactId,conversations.twilioNumber],set:{status:'open',lastMessageAt:new Date()}}).returning();
     await db().insert(messages).values({conversationId:thread.id,twilioSid:sent.sid,direction:'outbound',body,fromNumber:twilioNumber(),toNumber:s.phone,status:sent.status,numSegments:Number(sent.numSegments)||1}).onConflictDoNothing();
     await db().update(conversations).set({lastMessageAt:new Date()}).where(eq(conversations.id,thread.id));

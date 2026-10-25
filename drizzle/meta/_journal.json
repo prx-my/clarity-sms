@@ -15,6 +15,13 @@
       "when": 1792941133603,
       "tag": "0001_yellow_bromley",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792948035928,
+      "tag": "0002_yellow_bucky",
+      "breakpoints": true
     }
   ]
 }

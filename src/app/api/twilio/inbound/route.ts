@@ -3,14 +3,16 @@ import { db } from '@/db';
 import { contacts, conversations, messages, webhookLogs } from '@/db/schema';
 import { normalizePhone } from '@/lib/phone';
 import { validateWebhook } from '@/lib/twilio';
+import { MonitoringStore } from '@/lib/monitoring/store';
+import { messageEvent, webhookMetadata } from '@/lib/monitoring/model';
 export const runtime = 'nodejs';
 const xml = new Response('<Response/>', { status: 200, headers: { 'Content-Type': 'text/xml; charset=utf-8' } });
 export async function POST(request: Request) {
   const params = Object.fromEntries(await request.formData()) as Record<string,string>;
   const valid = validateWebhook(request, params);
   const sid = params.MessageSid || null;
-  try { await db().insert(webhookLogs).values({ kind: 'inbound', messageSid: sid, signatureValid: valid, payload: params }); }
-  catch (error) { console.error('Failed to log inbound webhook', error); }
+  try { await db().insert(webhookLogs).values({ kind: 'inbound', messageSid: sid, signatureValid: valid, payload: webhookMetadata(params) }); }
+  catch { console.error('Failed to log inbound webhook'); }
   if (!valid) return new Response('Invalid signature', { status: 403 });
   try {
     if (!sid) return xml;
@@ -23,7 +25,8 @@ export async function POST(request: Request) {
     const count = Math.min(Number(params.NumMedia) || 0, 10);
     const mediaUrls = Array.from({ length: count }, (_, index) => params[`MediaUrl${index}`]).filter(Boolean);
     const [created] = await db().insert(messages).values({ conversationId: conversation.id, twilioSid: sid, direction: 'inbound', body, fromNumber: from, toNumber: to, mediaUrls, status: 'received' }).onConflictDoNothing({ target: messages.twilioSid }).returning({ id: messages.id });
+    await new MonitoringStore().ingest(messageEvent({ ...params, MessageStatus: 'received' }, { contactId: contact.id }));
     if (created) await db().update(conversations).set({ unreadCount: sql`${conversations.unreadCount} + 1`, lastMessageAt: new Date(), status: 'open' }).where(eq(conversations.id, conversation.id));
-  } catch (error) { console.error('Inbound webhook error', error); return new Response('Processing failed', { status: 500 }); }
+  } catch { console.error('Inbound webhook persistence failed'); return new Response('Processing failed', { status: 500 }); }
   return xml;
 }

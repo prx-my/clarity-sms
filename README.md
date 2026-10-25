@@ -90,3 +90,22 @@ npm run build
 Live operation additionally requires a key for the selected OpenAI or Groq provider, enabled Twilio ConversationRelay account, HTTPS/WSS hosting and migrated Neon tables. Production can use the existing Vercel Fluid Compute project with `AI_GATEWAY_MODE=vercel` and a four-minute conversation limit. Local phone demos use the standalone gateway (`npm run voice:start` or `npm run voice:dev`). Deployment, cost limits and the environment matrix are in the [production release guide](docs/production-release.md).
 
 An owner-authorized real call was completed during local setup using Twilio ConversationRelay and Groq; see the [verification report](docs/ai-verification.md) for measured results and remaining limits. Automated tests and simulations never place provider calls, change routing or deploy database changes.
+
+## Monitoring & Usage Intelligence
+
+Open **Monitoring** for real stored voice, messaging, AI and financial usage. It includes timelines, original-currency estimates and provider prices, sourced INR conversion, billing reconciliation, alert rules, budgets, health checks and protected CSV export. Preview mode does not fabricate monitoring counters.
+
+```bash
+# For databases managed by the existing migration history:
+npm run db:migrate
+# For an existing database originally initialized with db:push/manual AI setup:
+npm run monitoring:setup              # inspect the additive migration
+npm run monitoring:setup -- --apply   # guarded, atomic setup; refuses partial schema
+npm run monitoring:worker            # persistent processing + bounded reconciliation
+# Or one bounded pass:
+npm run monitoring:once
+```
+
+Do not mix initialization strategies without reviewing migration history. The existing browser Dial TwiML and SMS callbacks are extended automatically; additional inbound manual routes must configure the signed `/api/twilio/monitoring/voice` status callback without replacing their call-routing URL. Add applicable sourced rate cards in Monitoring → Costs; no SMS/FX rates are invented. The worker can run alongside the existing voice gateway. Reconciled resource prices can differ from final invoices.
+
+See the [repository audit, engineering report and limitations](docs/monitoring-implementation.md) and [setup/live verification runbook](docs/monitoring-testing.md). Tests use isolated embedded Postgres and never contact a provider or send a message.
