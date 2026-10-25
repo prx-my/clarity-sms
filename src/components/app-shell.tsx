@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChartNoAxesCombined, Inbox, MessageSquareText, Phone, Plus, Send, Settings, Users } from 'lucide-react';
+import { Activity, ChartNoAxesCombined, Inbox, MessageSquareText, Phone, Plus, Send, Settings, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/client-api';
 import { normalizePhone } from '@/lib/phone';
@@ -15,6 +15,7 @@ const links = [
   { href: '/calls', label: 'Calls', icon: Phone },
   { href: '/contacts', label: 'Contacts', icon: Users },
   { href: '/analytics', label: 'Analytics', icon: ChartNoAxesCombined },
+  { href: '/monitoring', label: 'Monitoring', icon: Activity },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

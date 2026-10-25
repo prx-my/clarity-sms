@@ -7,6 +7,9 @@ import { normalizePhone } from '@/lib/phone';
 import { client, publicAppUrl, twilioNumber } from '@/lib/twilio';
 import { errorReason } from '@/lib/errors';
 import { demoEnabled, demoSend } from '@/lib/demo';
+import { collect } from '@/lib/monitoring/store';
+import { messageRecord } from '@/lib/monitoring/providers';
+import { segments } from '@/lib/monitoring/model';
 export const runtime = 'nodejs';
 const schema = z.object({ to: z.string().min(1), body: z.string().trim().min(1).max(1600), name: z.string().trim().max(100).optional() });
 export async function POST(request: Request) {
@@ -27,9 +30,13 @@ export async function POST(request: Request) {
       sent = await client().messages.create({ to, from, body: parsed.data.body, statusCallback: `${publicAppUrl()}/api/twilio/status` });
     } catch (error: unknown) {
       const twilioError = error as { code?: number; message?: string };
+      await collect({key:`sms-error:${crypto.randomUUID()}`,type:'messaging.request.failed',category:'SYSTEM_EVENT',provider:'twilio',accountId:process.env.TWILIO_ACCOUNT_SID||null,resourceId:`request:${crypto.randomUUID()}`,contactId:contact.id,occurredAt:new Date().toISOString(),status:'failed',errorCode:twilioError.code?String(twilioError.code):'provider_unavailable',data:{}});
       if (twilioError.code === 21610) await database.update(contacts).set({ optedOut: true }).where(eq(contacts.id, contact.id));
       return Response.json({ error: twilioError.code ? errorReason(String(twilioError.code)) : 'Twilio could not send this message', code: twilioError.code || null }, { status: 502 });
     }
+    const predicted = segments(parsed.data.body);
+    const telemetry = messageRecord(sent, { contactId: contact.id });
+    await collect({ ...telemetry, data: { ...telemetry.data, estimatedSegments: predicted.segments, encoding: predicted.encoding } });
     const [message] = await database.insert(messages).values({ conversationId: conversation.id, twilioSid: sent.sid, direction: 'outbound', body: parsed.data.body, fromNumber: from, toNumber: to, numSegments: Number(sent.numSegments) || 1, status: 'queued' }).onConflictDoUpdate({ target: messages.twilioSid, set: { conversationId: conversation.id } }).returning();
     // A callback may arrive before the create response. Reconcile all persisted events now.
     const events = await database.select().from(messageEvents).where(eq(messageEvents.messageSid, sent.sid)).orderBy(desc(messageEvents.createdAt));

@@ -68,3 +68,44 @@ Do not commit `.env.local` or production credentials. Twilio trial accounts can 
 | `npm run db:push` | Apply the Drizzle schema to Postgres |
 
 CI runs the TypeScript check and production build for pushes and pull requests.
+
+## AI voice assistant
+
+Calls now has **Manual Dialer | AI Agent** modes. The manual browser dialer and SMS routes are preserved; AI is disabled by default and has its own gateway, tables and signed webhooks.
+
+The integrated implementation includes editable agents, ConversationRelay, streamed OpenAI responses, interruptions, validated tools, contact consent/opt-out handling, live transcripts, persistent outcomes, versioned cost estimates and budget controls. See the [setup and deployment guide](docs/ai-voice-setup.md), [demo script](docs/ai-demo-script.md), and [implementation audit](docs/ai-voice-implementation.md).
+
+For local checks with **no provider spend or production database writes**:
+
+```bash
+npm ci
+npm test
+npm run simulate
+npm run typecheck
+npm run build
+```
+
+`npm test` includes an embedded Postgres migration/persistence test. `npm run simulate` writes `docs/voice-simulation-report.json`, explicitly labeled synthetic; it never creates a real call, message or calendar booking. For a preview UI, run with `DEMO_MODE=1`, `ADMIN_PASSWORD`, and a 32-character `SESSION_SECRET`; Calls → AI Agent uses ephemeral agent settings and disables live calls. Existing preview contacts are sample SMS data.
+
+Live operation additionally requires an OpenAI API key, enabled Twilio ConversationRelay account, an HTTPS application origin, a public WSS gateway and migrated Neon tables. Start the gateway separately with `npm run voice:start` (or `npm run voice:dev` for watch mode). **Vercel does not host this persistent WebSocket gateway.** Use a long-lived Node host for it; the dashboard can remain on Vercel.
+
+An owner-authorized real call was completed during local setup using Twilio ConversationRelay and Groq; see the [verification report](docs/ai-verification.md) for measured results and remaining limits. Automated tests and simulations never place provider calls, change routing or deploy database changes.
+
+## Monitoring & Usage Intelligence
+
+Open **Monitoring** for real stored voice, messaging, AI and financial usage. It includes timelines, original-currency estimates and provider prices, sourced INR conversion, billing reconciliation, alert rules, budgets, health checks and protected CSV export. Preview mode does not fabricate monitoring counters.
+
+```bash
+# For databases managed by the existing migration history:
+npm run db:migrate
+# For an existing database originally initialized with db:push/manual AI setup:
+npm run monitoring:setup              # inspect the additive migration
+npm run monitoring:setup -- --apply   # guarded, atomic setup; refuses partial schema
+npm run monitoring:worker            # persistent processing + bounded reconciliation
+# Or one bounded pass:
+npm run monitoring:once
+```
+
+Do not mix initialization strategies without reviewing migration history. The existing browser Dial TwiML and SMS callbacks are extended automatically; additional inbound manual routes must configure the signed `/api/twilio/monitoring/voice` status callback without replacing their call-routing URL. Add applicable sourced rate cards in Monitoring → Costs; no SMS/FX rates are invented. The worker can run alongside the existing voice gateway. Reconciled resource prices can differ from final invoices.
+
+See the [repository audit, engineering report and limitations](docs/monitoring-implementation.md) and [setup/live verification runbook](docs/monitoring-testing.md). Tests use isolated embedded Postgres and never contact a provider or send a message.

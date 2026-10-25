@@ -1,0 +1,48 @@
+{
+  "generatedAt": "2026-10-25T15:32:56.764Z",
+  "simulation": true,
+  "realCalls": 0,
+  "scenarios": [
+    {
+      "scenario": "A: inquiry and booking",
+      "simulation": true,
+      "outcome": "Meeting booked",
+      "bookingResult": "booked",
+      "provider": "injected test calendar, not a real booking"
+    },
+    {
+      "scenario": "B: demo link",
+      "simulation": true,
+      "result": "accepted_for_delivery",
+      "provider": "injected test SMS, no real message sent"
+    },
+    {
+      "scenario": "C: interruption",
+      "simulation": true,
+      "reportedPrefix": "We help",
+      "audioQuality": "not measured"
+    },
+    {
+      "scenario": "D: opt-out",
+      "simulation": true,
+      "suppressed": true,
+      "state": "OPTED_OUT"
+    },
+    {
+      "scenario": "E: transfer",
+      "simulation": true,
+      "attempts": 1,
+      "provider": "injected test call control, no real transfer"
+    }
+  ],
+  "contextComparison": {
+    "fixture": "80 synthetic messages",
+    "baselineCharacters": 29777,
+    "optimizedCharacters": 10440,
+    "measurement": "serialized context characters, not tokens or observed provider savings"
+  },
+  "limitations": [
+    "No real audio, speech recognition accuracy, transport latency, provider cost or business-quality savings measured.",
+    "All external effects use injected test providers."
+  ]
+}
