@@ -4,6 +4,7 @@ node_modules/
 coverage/
 *.tsbuildinfo
 next-env.d.ts
+.ai-local/
 *.log
 .DS_Store
 
