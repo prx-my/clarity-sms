@@ -80,3 +80,5 @@ Live acceptance and the final validation record are documented in [monitoring-te
 ## Integration with current main
 
 The merge retains main's Node 22 engine, dependency security overrides, production environment guards, atomic relay ownership, Vercel/standalone gateway modes and CI audit/container checks. Monitoring health probes `/api/twilio/ai/health` in Vercel mode and `/health` in standalone mode. Monitoring usage timestamps and instrumentation are layered onto the current AI runtime/store without reverting its deployment fixes.
+
+Post-integration validation passed all 84 tests, the synthetic scenarios, TypeScript and the production build. The production-only dependency audit reported zero vulnerabilities. The merged code retains all existing gateway/deployment regression tests and adds a Vercel monitoring-health regression test.
