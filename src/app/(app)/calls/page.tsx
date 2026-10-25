@@ -9,6 +9,7 @@ import { Badge, Button, Skeleton } from '@/components/ui/primitives';
 import { api } from '@/lib/client-api';
 import { openDialer } from '@/lib/dialer';
 import { displayPhone } from '@/lib/phone';
+import { AiWorkspace } from '@/components/ai-workspace';
 
 type VoiceCall = {
   sid: string;
@@ -28,6 +29,7 @@ function duration(seconds: number) {
 }
 
 export default function CallsPage() {
+  const [mode, setMode] = useState<'manual'|'ai'>('manual');
   const [items, setItems] = useState<VoiceCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,6 +58,11 @@ export default function CallsPage() {
     <PageHeader title="Calls" subtitle="Call people from your connected Twilio number"
       action={<Button variant="primary" onClick={() => openDialer()}><Phone size={15} />New call</Button>} />
     <div className="content-page calls-page">
+      <div className="ai-mode-switch" role="group" aria-label="Calling mode">
+        <button aria-pressed={mode==='manual'} className={mode==='manual'?'active':''} onClick={()=>setMode('manual')}>Manual Dialer</button>
+        <button aria-pressed={mode==='ai'} className={mode==='ai'?'active':''} onClick={()=>setMode('ai')}>AI Agent</button>
+      </div>
+      {mode==='ai' ? <AiWorkspace/> : <>
       <section className="calls-hero">
         <div className="calls-hero-icon"><Headphones size={25} strokeWidth={1.7} /></div>
         <div><span className="calls-eyebrow">BROWSER CALLING</span>
@@ -85,6 +92,7 @@ export default function CallsPage() {
             description="Your outgoing call history will appear here after your first call."
             action={<Button variant="primary" onClick={() => openDialer()}><Phone size={14} />Open dialer</Button>} />}
       </section>
+      </>}
     </div>
   </>;
 }

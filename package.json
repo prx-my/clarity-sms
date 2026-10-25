@@ -8,7 +8,13 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "voice:dev": "node --import tsx --watch scripts/voice-gateway.ts",
+    "voice:start": "node --import tsx scripts/voice-gateway.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "simulate": "node --import tsx scripts/simulate-voice.ts",
+    "db:migrate": "node --import tsx scripts/migrate.ts",
+    "check:env": "node --import tsx scripts/check-production-env.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
@@ -22,31 +28,47 @@
     "@radix-ui/react-tooltip": "^1.2.0",
     "@tailwindcss/postcss": "^4.1.0",
     "@twilio/voice-sdk": "^2.18.5",
+    "@vercel/functions": "^3.10.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "drizzle-orm": "^0.44.0",
+    "dotenv": "^18.0.9",
+    "drizzle-orm": "^0.45.4",
     "jose": "^6.0.0",
     "libphonenumber-js": "^1.12.0",
     "lucide-react": "^0.468.0",
     "next": "^15.5.0",
+    "openai": "^7.43.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "recharts": "^3.0.0",
     "sonner": "^2.0.0",
     "tailwind-merge": "^3.3.0",
     "tailwindcss": "^4.1.0",
+    "tsx": "^4.23.15",
     "twilio": "^5.0.0",
+    "ws": "^8.22.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.11",
     "@eslint/eslintrc": "^3.3.7",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/ws": "^8.18.2",
     "drizzle-kit": "^0.31.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.5.0",
     "typescript": "^5.8.0"
+  },
+  "overrides": {
+    "postcss": "^8.5.31",
+    "@vercel/cli-config": {
+      "zod": "^4.6.7"
+    }
+  },
+  "engines": {
+    "node": "22.x"
   }
 }
