@@ -2,13 +2,13 @@
 
 ## Current release decision
 
-The AI voice change can be reviewed and deployed with `AI_VOICE_ENABLED=0`. Existing SMS and browser dialing retain their current routes and credentials. Vercel mode uses the existing project's Fluid Compute WebSocket runtime, with no separate Railway service. Enabling production AI requires a deployed socket handshake and authenticated provider readiness. Local ngrok/loopback settings are rejected in production. Rotate the credential shared during demo setup before general production use.
+The AI voice change is deployed on the existing Vercel project's Fluid Compute WebSocket runtime, with no separate Railway service. Existing SMS and browser dialing retain their current routes and credentials. On 2026-10-25, the unpromoted deployment passed verification and was promoted to the production domain. The public production domain then passed authenticated dashboard/database reads, browser-dialer token generation, Groq model availability, secret-protected gateway health, and a signed HTTP 101 WebSocket upgrade; an invalid session ticket was rejected with close code 1008. Outbound remains paused, the production outbound allowlist is empty, and inbound routing remains normal. No additional phone call, SMS or calendar action was placed. Local ngrok/loopback settings are rejected in production. The owner explicitly authorized the existing demo Groq key for this Vercel project; rotate it before general production use.
 
-This PR intentionally excludes the concurrent Monitoring implementation and migration `0002`. The AI migration is `0001_yellow_bromley.sql`; it adds ten tables and preserves existing contacts, conversations and messages. Fresh/journal-managed databases use `npm run db:migrate`. A legacy database installed using `db:push` needs an inspected baseline or the additive migration applied transactionally once; do not replay `0000` over existing SMS tables. Tests exercise the SQL with existing SMS data. No production migration is executed by CI or the web build.
+This PR intentionally excludes the concurrent Monitoring implementation and migration `0002`. The AI migration is `0001_yellow_bromley.sql`; it adds ten tables and preserves existing contacts, conversations and messages. The configured database's AI schema was verified through the deployed dashboard; no new production migration was needed in this release. Fresh/journal-managed databases use `npm run db:migrate`. A legacy database installed using `db:push` needs an inspected baseline or the additive migration applied transactionally once; do not replay `0000` over existing SMS tables. Tests exercise the SQL with existing SMS data. No production migration is executed by CI or the web build.
 
 ## Environment matrix
 
-Production variable names were inspected on the linked Vercel project. Secret values were not downloaded or verified. The current deployment was Ready at inspection. “Present” below describes metadata, not credential validity.
+Production variable names were inspected on the linked Vercel project without downloading its secret values. AI settings and encrypted secrets were subsequently configured with the owner's authorization and verified through authenticated deployed endpoints. The existing admin login, database reads and manual call history returned HTTP 200. No production secret is included in this report.
 
 | Variable | Vercel metadata | Required location and value |
 | --- | --- | --- |
@@ -18,15 +18,15 @@ Production variable names were inspected on the linked Vercel project. Secret va
 | `ADMIN_PASSWORD`, `SESSION_SECRET` | Present | App; session secret at least 32 characters |
 | `APP_URL` | Present | App and gateway; canonical production HTTPS origin; no tunnel or path |
 | `DEMO_MODE` | Present | App and gateway; unset or `0` for live production |
-| `AI_VOICE_ENABLED` | Added as `0` during audit | App and gateway; `0` until activation checks pass |
-| `AI_DEPLOYMENT_MODE` | Missing at initial audit | Standalone gateway `production`; Vercel uses its system `VERCEL_ENV` guard |
-| `AI_GATEWAY_MODE` | Missing at initial audit | `vercel` for the existing project; `standalone` for the optional Node server |
-| `AI_LLM_PROVIDER`, `AI_LLM_MODEL` | Missing at audit | App and gateway; selected provider and account-available chat model |
-| `GROQ_API_KEY` or `OPENAI_API_KEY` | Missing at audit | App and gateway; fresh secret for each enabled agent’s provider |
-| `AI_WEBSOCKET_PUBLIC_URL` | Missing at initial audit | Vercel: `wss://<APP_URL host>/api/twilio/ai/relay`; standalone: stable public `wss://…/relay` |
-| `AI_GATEWAY_SECRET` | Missing at audit | App and gateway; identical random secret, at least 32 characters |
-| `AI_CONVERSATION_RELAY_ACKNOWLEDGED` | Missing at audit | App and gateway; `1` after verifying account onboarding |
-| `AI_DEMO_ALLOWED_NUMBERS` | Missing at audit | App; exact consented outbound E.164 destinations; empty denies outbound |
+| `AI_VOICE_ENABLED` | Configured | `1` only after deployment verification; workspace outbound pause still applies |
+| `AI_DEPLOYMENT_MODE` | Configured | `production`; Vercel also uses its system `VERCEL_ENV` guard |
+| `AI_GATEWAY_MODE` | Configured | `vercel`; `standalone` remains available for optional Node hosting |
+| `AI_LLM_PROVIDER`, `AI_LLM_MODEL` | Configured | `groq`, `openai/gpt-oss-20b`; account model visibility verified |
+| `GROQ_API_KEY` | Encrypted sensitive variable | Owner-authorized provider secret; no OpenAI key required for Groq agents |
+| `AI_WEBSOCKET_PUBLIC_URL` | Configured | `wss://<APP_URL host>/api/twilio/ai/relay` |
+| `AI_GATEWAY_SECRET` | Encrypted sensitive variable | Generated random 64-character secret |
+| `AI_CONVERSATION_RELAY_ACKNOWLEDGED` | Configured | `1`; account onboarding was previously verified in Twilio Console |
+| `AI_DEMO_ALLOWED_NUMBERS` | Intentionally unset | Empty denies outbound; new destination/consent authorization is required |
 | `AI_GATEWAY_PORT` | Gateway only | `3001` in the container; map the host's ingress port |
 | `AI_PROXY_APP_URL` | Local demo only | Unset in production; production validation rejects it |
 | `GOOGLE_CALENDAR_ID`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | Optional | App and gateway only when enabling real calendar tools |
