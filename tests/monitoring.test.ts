@@ -201,3 +201,15 @@ test('historical backfill preserves a page checkpoint, deduplicates replay and c
   await backfillPage(store,'calls',window.start,window.end,api);assert.equal(pages,2);await store.drain();assert.equal((await store.database().select().from(schema.monitoringResources))[0].status,'completed');assert.equal((await store.database().select().from(schema.usageMeasurements)).length,1);
  }finally{await pg.close();}
 });
+
+test('monitoring health uses the existing Vercel relay health route when configured',async t=>{
+ const {pg,store}=await setup();const previous={mode:process.env.AI_GATEWAY_MODE,url:process.env.AI_WEBSOCKET_PUBLIC_URL,secret:process.env.AI_GATEWAY_SECRET};
+ try{
+  process.env.AI_GATEWAY_MODE='vercel';process.env.AI_WEBSOCKET_PUBLIC_URL='wss://voice.example.com/api/twilio/ai/relay';process.env.AI_GATEWAY_SECRET='test-only-health-secret';let requested='';
+  t.mock.method(globalThis,'fetch',async(input:string|URL|Request)=>{requested=String(input);return Response.json({ready:true});});
+  const result=await health(store);assert.equal(requested,'https://voice.example.com/api/twilio/ai/health');assert.equal(result.gateway.state,'ready');
+ }finally{
+  t.mock.restoreAll();for(const [key,value] of [['AI_GATEWAY_MODE',previous.mode],['AI_WEBSOCKET_PUBLIC_URL',previous.url],['AI_GATEWAY_SECRET',previous.secret]]){if(value===undefined)delete process.env[key!];else process.env[key!]=value;}
+  await pg.close();
+ }
+});

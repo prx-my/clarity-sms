@@ -13,6 +13,7 @@ export interface Store {
   sessions(): Promise<Session[]>; session(id: string): Promise<Session|null>; createSession(session: Session): Promise<void>;
   patchSession(id: string, patch: Partial<Session>): Promise<void>; bindCall(id: string, callSid: string): Promise<boolean>;
   advanceStatus(id:string,status:string,patch:Partial<Session>):Promise<void>;
+  claimRelay(id:string,owner:string):Promise<boolean>;
   messages(id: string): Promise<Transcript[]>; addMessage(message: Transcript): Promise<void>; patchMessage(id: string, patch: Partial<Transcript>): Promise<void>;
   event(sessionId: string, kind: string, data?: Record<string,unknown>): Promise<void>; events(id: string): Promise<CallEvent[]>;
   tools(id: string): Promise<ToolExecution[]>; claimTool(tool: ToolExecution): Promise<boolean>; finishTool(id: string, patch: Partial<ToolExecution>): Promise<void>;
@@ -22,7 +23,10 @@ export interface Store {
 }
 const now = () => new Date().toISOString();
 export function newSession(agent: Agent, lead: Lead, direction: Session['direction'], simulation = false): Session {
-  return { id: crypto.randomUUID(), agentId: agent.id, contactId: lead.id, callSid: null, phone: lead.phone, direction, state: 'INITIALIZING', connectionStatus: 'queued', startedAt: null, endedAt: null, createdAt: now(), durationSeconds: 0, relaySeconds: 0, outcome: null, summary: '', simulation, agentSnapshot: structuredClone(agent.config), memory: {}, cohort: 'optimized', experiment: '' };
+  const agentSnapshot=structuredClone(agent.config);
+  // Leave time for ending and durable cleanup before the 300s function deadline.
+  if(process.env.AI_GATEWAY_MODE==='vercel')agentSnapshot.maxDurationSeconds=Math.min(agentSnapshot.maxDurationSeconds,240);
+  return { id: crypto.randomUUID(), agentId: agent.id, contactId: lead.id, callSid: null, phone: lead.phone, direction, state: 'INITIALIZING', connectionStatus: 'queued', startedAt: null, endedAt: null, createdAt: now(), durationSeconds: 0, relaySeconds: 0, outcome: null, summary: '', simulation, agentSnapshot, memory: {}, cohort: 'optimized', experiment: '' };
 }
 export function usageEvent(sessionId: string, key: string, category: string, quantity: string, unit: string, model = '', metadata: Record<string,unknown> = {}): Usage {
   return { id: crypto.randomUUID(), sessionId, key, category, quantity, unit, model, metadata, estimated: true, finalizedUsd: null, createdAt: now() };
@@ -68,6 +72,10 @@ export class PostgresStore implements Store {
   async sessions() { return this.database().select().from(aiSessions).orderBy(desc(aiSessions.createdAt)); }
   async session(id: string) { const [row] = await this.database().select().from(aiSessions).where(eq(aiSessions.id, id)); return row || null; }
   async createSession(session: Session) { await this.database().insert(aiSessions).values(session); }
+  async claimRelay(id:string,owner:string) {
+    const rows=await this.database().update(aiSessions).set({memory:sql`${aiSessions.memory} || jsonb_build_object('relayOwner', ${owner}::text)`}).where(and(eq(aiSessions.id,id),isNull(aiSessions.endedAt),sql`${aiSessions.memory}->>'relayOwner' is null`)).returning({id:aiSessions.id});
+    return rows.length===1;
+  }
   async patchSession(id: string, patch: Partial<Session>) { await this.database().update(aiSessions).set(patch).where(eq(aiSessions.id, id)); }
   async advanceStatus(id:string,status:string,patch:Partial<Session>) {
     const rank=(column:unknown)=>sql`case ${column} when 'queued' then 0 when 'initiated' then 1 when 'ringing' then 2 when 'in-progress' then 3 else 5 end`;
@@ -123,6 +131,7 @@ export class MemoryStore implements Store {
   async sessions() { return structuredClone([...this.sessionRows.values()].sort((a,b)=>b.createdAt.localeCompare(a.createdAt))); }
   async session(id: string) { return structuredClone(this.sessionRows.get(id) || null); }
   async createSession(v: Session) { if (!v.simulation && [...this.sessionRows.values()].some(s=>!s.simulation&&!s.endedAt)) throw new Error('One active demo call is already reserved'); this.sessionRows.set(v.id,structuredClone(v)); }
+  async claimRelay(id:string,owner:string) {const s=this.sessionRows.get(id);if(!s||s.endedAt||s.memory.relayOwner)return false;s.memory.relayOwner=owner;return true;}
   async patchSession(id: string, patch: Partial<Session>) { const s=this.sessionRows.get(id); if(s)Object.assign(s,structuredClone(patch)); }
   async advanceStatus(id:string,status:string,patch:Partial<Session>) { const s=this.sessionRows.get(id);if(!s)return;const r:Record<string,number>={queued:0,initiated:1,ringing:2,'in-progress':3};if((r[status]??5)<(r[s.connectionStatus]??5))return;const terminal=['COMPLETED','FAILED','OPTED_OUT','VOICEMAIL','NO_ANSWER','BUSY','CANCELED'].includes(s.state);Object.assign(s,structuredClone({...patch,connectionStatus:status,...(terminal?{state:s.state}:{})})); }
   async bindCall(id: string, callSid: string) { const s=this.sessionRows.get(id); if(!s||(s.callSid&&s.callSid!==callSid))return false;s.callSid=callSid;return true; }

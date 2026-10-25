@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T15:32:56.764Z",
+  "generatedAt": "2026-10-25T17:14:36.456Z",
   "simulation": true,
   "realCalls": 0,
   "scenarios": [
@@ -37,8 +37,8 @@
   ],
   "contextComparison": {
     "fixture": "80 synthetic messages",
-    "baselineCharacters": 29777,
-    "optimizedCharacters": 10440,
+    "baselineCharacters": 29928,
+    "optimizedCharacters": 10591,
     "measurement": "serialized context characters, not tokens or observed provider savings"
   },
   "limitations": [

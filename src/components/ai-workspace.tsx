@@ -47,7 +47,7 @@ export function AiWorkspace(){
   if(error&&!data)return <div className="ai-notice" role="alert"><Bot size={22}/><div><h2>AI workspace needs setup</h2><p>{error}</p><p>Apply the migration and set the AI environment variables. Manual dialing remains available.</p><Button onClick={load}>Retry</Button></div></div>;
   if(!data)return <Skeleton className="h-[300px]"/>;
   return <div className="ai-workspace">
-    <section className="ai-intro"><div className="calls-hero-icon"><Bot size={24}/></div><div><span className="calls-eyebrow">CONVERSATIONRELAY · TWILIO</span><h2>A helpful voice for every inquiry.</h2><p>Qualify leads, arrange a consultation, and see every action as it happens.</p></div><Badge tone={data.readiness.liveReady?'success':'warning'}>{data.readiness.simulation?'Preview · no live calls':data.readiness.liveReady?'Configured · verify providers':'Setup required'}</Badge></section>
+    <section className="ai-intro"><div className="calls-hero-icon"><Bot size={24}/></div><div><span className="calls-eyebrow">CONVERSATIONRELAY · TWILIO</span><h2>A helpful voice for every inquiry.</h2><p>Qualify leads, arrange a consultation, and see every action as it happens.</p></div><Badge tone={data.readiness.configured?'success':'warning'}>{data.readiness.simulation?'Preview · no live calls':data.readiness.liveReady?'Providers verified':data.readiness.configured?'Configured · verify providers':'Setup required'}</Badge></section>
     <nav className="ai-tabs" aria-label="AI workspace sections">{([{id:'calls',label:'Live & history',icon:Activity},{id:'agents',label:'Agents',icon:Bot},{id:'leads',label:'Leads',icon:Users},{id:'costs',label:'AI Cost Intelligence',icon:DollarSign},{id:'settings',label:'Settings',icon:Settings2}] as const).map(t=><button type="button" key={t.id} aria-current={tab===t.id?'page':undefined} className={tab===t.id?'active':''} onClick={()=>setTab(t.id)}><t.icon size={15}/>{t.label}</button>)}<Button size="sm" variant="ghost" onClick={load}><RefreshCw size={14}/>Refresh</Button></nav>
     {error&&<p className="ai-notice" role="alert">{error}</p>}
 
@@ -64,7 +64,7 @@ export function AiWorkspace(){
         </details>
         <label className="ai-check"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/>I confirm this recipient authorized this AI test call.</label>
         <Button variant="primary" disabled={busy||!contactId||!agentId||!consent||data.readiness.simulation} onClick={start}><Phone size={15}/>{busy?'Working…':'Start AI call'}</Button>
-        {!data.readiness.liveReady&&<p className="ai-muted">Missing: {data.readiness.missing.join(', ')||'enable AI voice and acknowledge ConversationRelay onboarding in environment settings'}.</p>}
+        {!data.readiness.liveReady&&<p className="ai-muted">Setup: {data.readiness.missing.join(', ')||(data.readiness.configured?'verify providers before placing a call':'enable AI voice and acknowledge ConversationRelay onboarding in environment settings')}.</p>}
       </section>
       <section className="ai-card ai-live"><div className="ai-card-heading"><div><h2>Call activity</h2><small className="ai-muted">{streamState}</small></div>{s&&!s.endedAt&&<Button variant="danger" size="sm" disabled={busy} onClick={()=>action(()=>api(`/api/ai/sessions/${s.id}`,{method:'DELETE'}),'End requested')}><PhoneOff size={14}/>End call</Button>}</div>
         {!detail?<div className="ai-empty"><Activity size={28}/><p>Choose a call below to see its transcript, tools, and outcome.</p></div>:<>

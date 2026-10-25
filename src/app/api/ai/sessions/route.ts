@@ -30,7 +30,7 @@ export async function POST(request:Request){const denied=await aiAuth(request);i
     const session=newSession(agent,lead,'outbound');
     if(settings.experiment.enabled){session.experiment=settings.experiment.name;session.cohort=agent.id===settings.experiment.baselineAgentId?'baseline':'optimized';}
     await store.createSession(session);await store.event(session.id,'outbound_authorized',{consentAt:lead.consentAt,contactTimezone:lead.timezone});
-    try{const call=await voiceClient().calls.create({to:lead.phone,from:twilioNumber(),url:`${publicAppUrl()}/api/twilio/ai/connect?session=${session.id}`,method:'POST',statusCallback:`${publicAppUrl()}/api/twilio/ai/status?session=${session.id}`,statusCallbackMethod:'POST',statusCallbackEvent:['initiated','ringing','answered','completed'],timeout:25,timeLimit:agent.config.maxDurationSeconds+90,record:false});
+    try{const call=await voiceClient().calls.create({to:lead.phone,from:twilioNumber(),url:`${publicAppUrl()}/api/twilio/ai/connect?session=${session.id}`,method:'POST',statusCallback:`${publicAppUrl()}/api/twilio/ai/status?session=${session.id}`,statusCallbackMethod:'POST',statusCallbackEvent:['initiated','ringing','answered','completed'],timeout:25,timeLimit:session.agentSnapshot.maxDurationSeconds+90,record:false});
       if(!await store.bindCall(session.id,call.sid))throw new Error('call_mismatch');
       return Response.json({id:session.id,callSid:call.sid},{status:201});
     }catch(error){

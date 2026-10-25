@@ -1,19 +1,24 @@
 import dotenv from 'dotenv';
 dotenv.config({path:'.env.local',quiet:true});dotenv.config({quiet:true});
 import { createServer, request as proxyRequest } from 'node:http';
-import twilio from 'twilio';
 import { WebSocketServer, WebSocket } from 'ws';
 import { getStore } from '../src/lib/ai/store';
-import { aiEnabled } from '../src/lib/ai/config';
-import { AgentRuntime, relayEvent } from '../src/lib/ai/runtime';
-import { verifyTicket } from '../src/lib/ai/telephony';
+import { aiEnabled, requiredConfiguration } from '../src/lib/ai/config';
+import { productionDeployment, productionEnvironmentReport } from '../src/lib/ai/deployment';
+import { handleRelaySocket, validRelayHandshake } from '../src/lib/ai/gateway';
 import { llmConnection } from '../src/lib/ai/llm-connection';
 
-const store=getStore(),active=new Map<string,{ws:WebSocket;runtime:AgentRuntime}>();
+if(productionDeployment()) {
+  const report=productionEnvironmentReport();
+  // The gateway does not authenticate browser users or issue manual-dialer tokens.
+  const gatewayErrors=report.errors.filter(e=>!['ADMIN_PASSWORD','SESSION_SECRET','TWILIO_API_KEY_SID','TWILIO_API_KEY_SECRET','TWILIO_TWIML_APP_SID'].some(key=>e.startsWith(key)));
+  if(gatewayErrors.length){console.error('Gateway production configuration invalid:',gatewayErrors.join('; '));process.exit(1);}
+}
+const store=getStore(),active=new Map<WebSocket,ReturnType<typeof handleRelaySocket>>();
 const publicUrl=process.env.AI_WEBSOCKET_PUBLIC_URL,auth=process.env.TWILIO_AUTH_TOKEN;
 const server=createServer((req,res)=>{
   // A secret-protected readiness probe contains no keys, phone numbers or transcripts.
-  if(req.url==='/health'&&req.headers['x-ai-health']===process.env.AI_GATEWAY_SECRET&&process.env.AI_GATEWAY_SECRET){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({ready:aiEnabled()&&!!llmConnection().apiKey,provider:llmConnection().provider,active:active.size}));}
+  if(req.url==='/health'&&req.headers['x-ai-health']===process.env.AI_GATEWAY_SECRET&&process.env.AI_GATEWAY_SECRET){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({ready:aiEnabled()&&!requiredConfiguration().length&&!!llmConnection().apiKey,provider:llmConnection().provider,active:active.size}));}
   else if(req.url?.split('?')[0]==='/health'){res.writeHead(404);res.end();}
   else if(process.env.AI_PROXY_APP_URL){
     // Optional local-demo proxy lets one TLS tunnel serve Next.js and /relay.
@@ -30,47 +35,15 @@ const server=createServer((req,res)=>{
 const sockets=new WebSocketServer({noServer:true,maxPayload:32768,perMessageDeflate:false});
 server.on('upgrade',(req,socket,head)=>{
   if(!aiEnabled()||!publicUrl||!auth||active.size>=1){socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');return;}
-  const configured=new URL(publicUrl),incoming=req.url||'';
   const signature=typeof req.headers['x-twilio-signature']==='string'?req.headers['x-twilio-signature']:'';
-  // Twilio signs the public handshake URL. Accept documented WSS/HTTPS proxy representations, never Host headers.
-  const urls=[publicUrl,publicUrl.replace(/^wss:/,'https:')];
-  const valid=incoming===configured.pathname+configured.search&&urls.some(url=>twilio.validateRequest(auth,signature,url,{}));
-  if(!valid){socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
+  if(!validRelayHandshake(signature,req.url||'')){socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
   sockets.handleUpgrade(req,socket,head,ws=>sockets.emit('connection',ws));
 });
 sockets.on('connection',ws=>{
-  let runtime:AgentRuntime|null=null,sessionId:string|null=null,initialization:Promise<void>|null=null,setupPending=false,frames=0,windowStart=Date.now();
-  const setupTimeout=setTimeout(()=>ws.close(1008,'Setup required'),8000);
-  ws.on('message',async raw=>{
-    try {
-      if(Date.now()-windowStart>1000){frames=0;windowStart=Date.now();}if(++frames>100){ws.close(1008,'Rate limit');return;}
-      const parsed=relayEvent.safeParse(JSON.parse(raw.toString()));if(!parsed.success){ws.close(1008,'Invalid event');return;}
-      if(parsed.data.type==='setup') {
-        if(runtime||setupPending){ws.close(1008,'Duplicate setup');return;}setupPending=true;
-        const e=parsed.data,id=e.customParameters?.sessionId,token=e.customParameters?.ticket;
-        if(!id||!token||e.accountSid!==process.env.TWILIO_ACCOUNT_SID||!verifyTicket(token,id,e.callSid)){ws.close(1008,'Invalid session');return;}
-        const session=await store.session(id);
-        if(!session||session.simulation||session.callSid!==e.callSid||session.endedAt||active.has(id)){ws.close(1008,'Session unavailable');return;}
-        sessionId=id;
-        runtime=new AgentRuntime(store,id,{
-          text(token,last){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'text',token,last,interruptible:true,preemptible:true}));},
-          end(reason){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'end',handoffData:JSON.stringify({reason})}));},
-          close(){ws.close(1000);},
-        });
-        active.set(id,{ws,runtime});clearTimeout(setupTimeout);initialization=runtime.start();await initialization;
-      } else if(runtime){await initialization;await runtime.handle(parsed.data);}
-      else ws.close(1008,'Setup required');
-    } catch {if(runtime)await runtime.fail('gateway_error').catch(()=>{});ws.close(1011,'Voice service unavailable');}
-  });
-  ws.on('close',()=>{clearTimeout(setupTimeout);if(sessionId)active.delete(sessionId);void runtime?.disconnect().catch(()=>console.error('AI session cleanup failed'));});
-  ws.on('error',()=>{ws.close(1011);});
+  const connection=handleRelaySocket(ws,store);active.set(ws,connection);
+  void connection.done.finally(()=>active.delete(ws));
 });
-let ticking=false;
-const timer=setInterval(async()=>{
-  if(ticking)return;ticking=true;
-  try{await Promise.all([...active.values()].map(async({runtime})=>{try{await runtime.tick();}catch{await runtime.fail('watchdog_error');}}));}finally{ticking=false;}
-},5000);
 const port=Number(process.env.AI_GATEWAY_PORT||3001);
 server.listen(port,'0.0.0.0',()=>console.log(`ConversationRelay gateway listening on ${port}. AI ${aiEnabled()?'enabled':'disabled'}.`));
-async function shutdown(){clearInterval(timer);for(const {runtime,ws} of active.values()){await runtime.fail('gateway_shutdown').catch(()=>{});ws.close(1012);}server.close();}
+async function shutdown(){await Promise.all([...active.values()].map(connection=>connection.shutdown()));server.close();setTimeout(()=>process.exit(0),8000).unref();}
 process.on('SIGTERM',()=>void shutdown());process.on('SIGINT',()=>void shutdown());

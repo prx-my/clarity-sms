@@ -73,7 +73,7 @@ CI runs the TypeScript check and production build for pushes and pull requests.
 
 Calls now has **Manual Dialer | AI Agent** modes. The manual browser dialer and SMS routes are preserved; AI is disabled by default and has its own gateway, tables and signed webhooks.
 
-The integrated implementation includes editable agents, ConversationRelay, streamed OpenAI responses, interruptions, validated tools, contact consent/opt-out handling, live transcripts, persistent outcomes, versioned cost estimates and budget controls. See the [setup and deployment guide](docs/ai-voice-setup.md), [demo script](docs/ai-demo-script.md), and [implementation audit](docs/ai-voice-implementation.md).
+The integrated implementation includes editable agents, ConversationRelay, streamed OpenAI or Groq responses, interruptions, validated tools, contact consent/opt-out handling, live transcripts, persistent outcomes, versioned cost estimates and budget controls. See the [setup and deployment guide](docs/ai-voice-setup.md), [demo script](docs/ai-demo-script.md), and [implementation audit](docs/ai-voice-implementation.md).
 
 For local checks with **no provider spend or production database writes**:
 
@@ -87,7 +87,7 @@ npm run build
 
 `npm test` includes an embedded Postgres migration/persistence test. `npm run simulate` writes `docs/voice-simulation-report.json`, explicitly labeled synthetic; it never creates a real call, message or calendar booking. For a preview UI, run with `DEMO_MODE=1`, `ADMIN_PASSWORD`, and a 32-character `SESSION_SECRET`; Calls → AI Agent uses ephemeral agent settings and disables live calls. Existing preview contacts are sample SMS data.
 
-Live operation additionally requires an OpenAI API key, enabled Twilio ConversationRelay account, an HTTPS application origin, a public WSS gateway and migrated Neon tables. Start the gateway separately with `npm run voice:start` (or `npm run voice:dev` for watch mode). **Vercel does not host this persistent WebSocket gateway.** Use a long-lived Node host for it; the dashboard can remain on Vercel.
+Live operation additionally requires a key for the selected OpenAI or Groq provider, enabled Twilio ConversationRelay account, HTTPS/WSS hosting and migrated Neon tables. Production can use the existing Vercel Fluid Compute project with `AI_GATEWAY_MODE=vercel` and a four-minute conversation limit. Local phone demos use the standalone gateway (`npm run voice:start` or `npm run voice:dev`). Deployment, cost limits and the environment matrix are in the [production release guide](docs/production-release.md).
 
 An owner-authorized real call was completed during local setup using Twilio ConversationRelay and Groq; see the [verification report](docs/ai-verification.md) for measured results and remaining limits. Automated tests and simulations never place provider calls, change routing or deploy database changes.
 

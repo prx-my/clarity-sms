@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { productionAiIssues } from './deployment';
 
 export const toolNames = ['lookup_lead', 'update_lead', 'save_qualification', 'check_calendar_availability', 'book_appointment', 'send_demo_link', 'send_followup', 'request_human_transfer', 'mark_do_not_call', 'end_call'] as const;
 export const outcomes = ['Interested', 'Needs follow-up', 'Not interested', 'Meeting requested', 'Meeting booked', 'Wrong number', 'Voicemail', 'Human requested', 'Opted out', 'Unqualified', 'Unresolved'] as const;
@@ -58,13 +59,13 @@ export const workspaceSchema = z.object({
 }).strict();
 export type WorkspaceConfig = z.infer<typeof workspaceSchema>;
 
-export function aiEnabled() { return process.env.AI_VOICE_ENABLED === '1' && process.env.DEMO_MODE !== '1'; }
+export function aiEnabled() { return process.env.AI_VOICE_ENABLED === '1' && process.env.DEMO_MODE !== '1' && productionAiIssues().length === 0; }
 export function allowlisted(phone: string) { return (process.env.AI_DEMO_ALLOWED_NUMBERS || '').split(',').map(p => p.trim()).includes(phone); }
 export function requiredConfiguration(provider:'openai'|'groq'=process.env.AI_LLM_PROVIDER==='groq'?'groq':'openai') {
   const missing=[provider==='groq'?'GROQ_API_KEY':'OPENAI_API_KEY', 'DATABASE_URL', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER', 'APP_URL', 'AI_WEBSOCKET_PUBLIC_URL', 'AI_GATEWAY_SECRET'].filter(k => !process.env[k]);
   if(process.env.AI_GATEWAY_SECRET&&process.env.AI_GATEWAY_SECRET.length<32)missing.push('AI_GATEWAY_SECRET (at least 32 characters)');
   for(const [key,protocol] of [['APP_URL','https:'],['AI_WEBSOCKET_PUBLIC_URL','wss:']] as const){if(process.env[key]){try{if(new URL(process.env[key]!).protocol!==protocol)missing.push(`${key} (${protocol} required for live AI)`);}catch{missing.push(`${key} (valid public URL required)`);}}}
-  return missing;
+  return [...new Set([...missing, ...productionAiIssues()])];
 }
 export function disclosure(config: AgentConfig) {
   return `I'm the AI assistant for ${config.company}. ` + config.greeting;
